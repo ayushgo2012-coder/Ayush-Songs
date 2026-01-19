@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spatial Studio Pro | 3D Audio Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        :root {
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.4);
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .spatial-canvas {
+            filter: drop-shadow(0 0 40px var(--accent-glow));
+        }
+
+        /* Custom Scrollbar Styles */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.6);
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+
+        .song-card {
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 40px 15px 40px 15px;
+            position: relative;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .song-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            background: rgba(30, 41, 59, 0.9);
+            border-color: rgba(99, 102, 241, 0.6);
+        }
+
+        .song-card.active {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-color: #ffffff;
+            box-shadow: 0 20px 50px -10px rgba(99, 102, 241, 0.6);
+        }
+
+        .song-card.active h4 {
+            color: white;
+        }
+
+        .play-indicator {
+            transition: all 0.3s ease;
+            transform: scale(0.9);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .song-card:hover .play-indicator {
+            transform: scale(1.1);
+            background-color: #ffffff;
+        }
+
+        .ring-animation {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: #1e293b;
+            border-radius: 5px;
+            background-image: linear-gradient(var(--accent), var(--accent));
+            background-repeat: no-repeat;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .mesh-bg {
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,0.2) 0, transparent 50%);
+        }
+    </style>
+</head>
+<body class="h-screen overflow-hidden select-none mesh-bg">
+
+    <div class="flex flex-col h-full">
+        <!-- Top Navigation -->
+        <header class="flex items-center justify-between px-8 py-5 bg-slate-950/40 border-b border-white/5 backdrop-blur-xl shrink-0 z-50">
+            <div class="flex items-center gap-4">
+                <div class="bg-indigo-600 p-2.5 rounded-2xl shadow-lg shadow-indigo-500/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black tracking-tight text-white leading-none mb-1">Spatial Studio <span class="text-indigo-400 italic font-medium">Pro</span></h1>
+                    <div class="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                        Visual Audio Engine
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <label id="importBtn" class="group flex items-center gap-3 px-6 py-3 text-[12px] font-black text-white bg-indigo-600 hover:bg-indigo-500 rounded-2xl shadow-xl shadow-indigo-500/10 transition-all cursor-pointer active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    <span id="importText">IMPORT TRACK</span>
+                    <input type="file" id="fileInput" accept="audio/*" class="hidden" />
+                </label>
+            </div>
+        </header>
+
+        <main class="flex flex-1 overflow-hidden relative">
+            <aside class="w-80 flex flex-col border-r border-white/5 bg-slate-950/40 shrink-0 z-40 backdrop-blur-sm">
+                <div class="flex-1 flex flex-col p-6 min-h-0">
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Real-Time Spectrum</h3>
+                    <div id="spectrumContainer" class="flex-1 overflow-hidden flex items-end gap-[2px]">
+                        <div id="barWrapper" class="flex items-end gap-[2px] w-full h-full pb-2"></div>
+                    </div>
+                </div>
+
+                <div class="p-8 bg-slate-950/80 border-t border-white/5">
+                    <div class="space-y-6">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Audio Physics</span>
+                        </div>
+                        
+                        <div class="space-y-5">
+                            <div>
+                                <div class="flex justify-between text-[10px] mb-3 font-bold text-slate-500 uppercase tracking-widest">Volume</div>
+                                <input type="range" id="volCtrl" min="0" max="1.5" step="0.01" value="0.8" class="w-full">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[10px] mb-3 font-bold text-slate-500 uppercase tracking-widest">Rotation Speed</div>
+                                <input type="range" id="speedCtrl" min="0.1" max="2" step="0.05" value="0.6" class="w-full">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[10px] mb-3 font-bold text-slate-500 uppercase tracking-widest">Orbit Height</div>
+                                <input type="range" id="heightCtrl" min="0" max="15" step="0.5" value="5" class="w-full">
+                            </div>
+                        </div>
+
+                        <div class="pt-4 flex items-center justify-between border-t border-white/5">
+                            <div class="text-[10px] font-mono text-slate-500">
+                                <p id="posDebug">X: 0.0 Y: 0.0 Z: 0.0</p>
+                            </div>
+                            <button id="stopBtn" class="p-3 glass-panel text-slate-400 rounded-xl hover:text-red-400 transition-all active:scale-90">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect width="12" height="12" x="6" y="6" rx="2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="flex-1 relative flex flex-col overflow-hidden">
+                <div class="h-[45%] relative flex items-center justify-center shrink-0">
+                    <div class="absolute inset-0 opacity-[0.05] pointer-events-none" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 40px 40px;"></div>
+                    
+                    <div class="relative w-[300px] h-[300px] flex items-center justify-center">
+                        <canvas id="visualizer" width="600" height="600" class="spatial-canvas w-full h-full"></canvas>
+                        
+                        <div class="absolute flex flex-col items-center gap-3">
+                             <div class="relative w-14 h-14 rounded-full glass-panel flex items-center justify-center border border-white/10 shadow-inner">
+                                <div id="centerRing" class="absolute inset-0 rounded-full border border-indigo-500/20"></div>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                             </div>
+                             <div class="text-center">
+                                <h2 id="currentTrackName" class="text-xs font-extrabold text-white mb-0.5 truncate max-w-[180px]">System Idle</h2>
+                                <p id="playbackStatus" class="text-[6px] font-black uppercase tracking-[0.6em] text-slate-500">No Signal</p>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NEW: Seek Bar Control Area -->
+                <div class="px-12 py-4 shrink-0 bg-slate-950/20">
+                    <div class="flex items-center gap-4">
+                        <span id="currentTime" class="text-[10px] font-mono text-slate-400 w-10">0:00</span>
+                        <input type="range" id="seekCtrl" min="0" max="100" value="0" class="flex-1 cursor-pointer">
+                        <span id="totalTime" class="text-[10px] font-mono text-slate-400 w-10 text-right">0:00</span>
+                    </div>
+                </div>
+
+                <div class="flex-1 flex flex-col min-h-0 bg-slate-950/30 p-8">
+                    <div class="flex items-center justify-between mb-6 shrink-0">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-[12px] font-black uppercase tracking-[0.4em] text-white">Digital Vault</h3>
+                            <span id="libraryCount" class="bg-indigo-600/30 text-indigo-400 text-[10px] px-3 py-1 rounded-full font-bold">0 Tracks</span>
+                        </div>
+                    </div>
+
+                    <!-- Grid wrapper with Scroll -->
+                    <div class="flex-1 overflow-y-auto custom-scroll pr-2">
+                        <div id="libraryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-12">
+                            <!-- Song tiles go here -->
+                        </div>
+                    </div>
+
+                    <div id="emptyState" class="absolute inset-0 top-[60%] flex flex-col items-center justify-center pointer-events-none opacity-30">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.4em] text-slate-500">Your vault is empty</p>
+                        <p class="text-[9px] mt-2 font-medium text-slate-600 uppercase tracking-widest">Import tracks to visualize</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const DB_NAME = "SpatialStudioV5_Persistent";
+        const STORE_NAME = "audio_assets";
+        let db;
+        
+        let audioCtx, pannerNode, sourceNode, analyzerNode, mainGain;
+        let songs = [], currentSong = null;
+        let isPlaying = false, isPaused = false;
+        let startTime = 0, pausedAt = 0, decodedBuffer = null;
+        let orbitSpeed = 0.6, heightAmplitude = 5, loudness = 0.8;
+
+        const libraryGrid = document.getElementById('libraryGrid');
+        const barWrapper = document.getElementById('barWrapper');
+        const volCtrl = document.getElementById('volCtrl');
+        const speedCtrl = document.getElementById('speedCtrl');
+        const heightCtrl = document.getElementById('heightCtrl');
+        const seekCtrl = document.getElementById('seekCtrl');
+        const currentTimeEl = document.getElementById('currentTime');
+        const totalTimeEl = document.getElementById('totalTime');
+        const currentTrackName = document.getElementById('currentTrackName');
+        const visualizer = document.getElementById('visualizer');
+        const canvasCtx = visualizer.getContext('2d');
+        const importText = document.getElementById('importText');
+        const centerRing = document.getElementById('centerRing');
+
+        const BAR_COUNT = 48;
+        for(let i=0; i < BAR_COUNT; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'flex-1 bg-indigo-500/40 rounded-t-sm transition-all duration-75';
+            bar.style.height = '4px';
+            barWrapper.appendChild(bar);
+        }
+        const spectrumBars = barWrapper.children;
+
+        const initDB = () => {
+            return new Promise((resolve) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = (e) => {
+                    const dbInstance = e.target.result;
+                    if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
+                        dbInstance.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+                    }
+                };
+                request.onsuccess = (e) => { 
+                    db = e.target.result; 
+                    resolve(db); 
+                };
+            });
+        };
+
+        const loadLibrary = () => {
+            const tx = db.transaction(STORE_NAME, "readonly");
+            tx.objectStore(STORE_NAME).getAll().onsuccess = (e) => {
+                songs = e.target.result;
+                document.getElementById('libraryCount').innerText = `${songs.length} Tracks`;
+                document.getElementById('emptyState').style.display = songs.length ? 'none' : 'flex';
+                
+                libraryGrid.innerHTML = '';
+                songs.forEach(song => {
+                    const isActive = currentSong?.id === song.id;
+                    const hue = (song.id * 140) % 360;
+                    
+                    const card = document.createElement('div');
+                    card.className = `song-card group p-6 glass-panel border border-white/10 cursor-pointer overflow-hidden ${isActive ? 'active' : ''}`;
+                    
+                    if (!isActive) {
+                        card.style.background = `linear-gradient(165deg, hsla(${hue}, 40%, 20%, 0.8), hsla(${hue}, 30%, 5%, 0.9))`;
+                    }
+                    
+                    card.innerHTML = `
+                        <div class="absolute -right-6 -top-6 w-24 h-24 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all"></div>
+                        <div class="relative z-10 flex flex-col h-full gap-4">
+                            <div class="flex items-center justify-between">
+                                <div class="play-indicator w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center">
+                                    ${isActive && isPlaying ? 
+                                        `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>` : 
+                                        `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="m7 3 14 9-14 9V3z"/></svg>`
+                                    }
+                                </div>
+                                <button class="del p-2 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                </button>
+                            </div>
+                            <div class="flex-1 flex flex-col justify-end">
+                                <h4 class="text-[16px] font-extrabold text-white leading-tight mb-2 line-clamp-2 drop-shadow-md">${song.name}</h4>
+                                <div class="track-meta flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    <span>${(song.size / 1048576).toFixed(1)} MB</span>
+                                    <span class="opacity-30">|</span>
+                                    <span>Audio</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${isActive && isPlaying ? `
+                            <div class="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+                                <div class="h-full bg-white animate-[shimmer_2s_infinite] w-full" style="background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)"></div>
+                            </div>
+                        ` : ''}
+                    `;
+                    
+                    card.onclick = (e) => {
+                        if (isActive) handleToggle();
+                        else playTrack(song);
+                    };
+                    
+                    card.querySelector('.del').onclick = (ev) => {
+                        ev.stopPropagation();
+                        if (currentSong?.id === song.id) stopTrack(true);
+                        db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).delete(song.id).oncomplete = () => loadLibrary();
+                    };
+                    
+                    libraryGrid.appendChild(card);
+                });
+            };
+        };
+
+        const initAudio = () => {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyzerNode = audioCtx.createAnalyser();
+            analyzerNode.fftSize = 256;
+            mainGain = audioCtx.createGain();
+            mainGain.gain.value = loudness;
+            pannerNode = audioCtx.createPanner();
+            pannerNode.panningModel = 'HRTF';
+            analyzerNode.connect(pannerNode);
+            pannerNode.connect(mainGain);
+            mainGain.connect(audioCtx.destination);
+        };
+
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        const playNextTrack = () => {
+            if (!songs.length) return;
+            const currentIndex = songs.findIndex(s => s.id === currentSong?.id);
+            let nextIndex = currentIndex + 1;
+            // Loop back to start if finished
+            if (nextIndex >= songs.length) nextIndex = 0;
+            playTrack(songs[nextIndex]);
+        };
+
+        const playTrack = async (song, resume = false) => {
+            initAudio();
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            
+            if(sourceNode) {
+                sourceNode.onended = null;
+                try { sourceNode.stop(); } catch(e) {}
+                sourceNode.disconnect();
+                sourceNode = null;
+            }
+
+            if (!resume) {
+                currentTrackName.innerText = "Processing...";
+                try {
+                    const buffer = song.data instanceof Blob ? await song.data.arrayBuffer() : song.data;
+                    decodedBuffer = await audioCtx.decodeAudioData(buffer.slice(0)); 
+                    pausedAt = 0;
+                    totalTimeEl.innerText = formatTime(decodedBuffer.duration);
+                    seekCtrl.max = decodedBuffer.duration;
+                } catch (e) {
+                    currentTrackName.innerText = "Error";
+                    return;
+                }
+            }
+
+            sourceNode = audioCtx.createBufferSource();
+            sourceNode.buffer = decodedBuffer;
+            sourceNode.connect(analyzerNode);
+            
+            const offset = pausedAt % decodedBuffer.duration;
+            sourceNode.start(0, offset);
+            startTime = audioCtx.currentTime - offset;
+            
+            currentSong = song; 
+            isPlaying = true; 
+            isPaused = false;
+            updateUI();
+            drawLoop();
+
+            sourceNode.onended = () => { 
+                if(!isPaused) { 
+                    isPlaying = false; 
+                    pausedAt = 0; 
+                    updateUI(); 
+                    // Autoplay logic
+                    playNextTrack();
+                } 
+            };
+        };
+
+        const pauseTrack = () => {
+            if (!isPlaying) return;
+            pausedAt = audioCtx.currentTime - startTime;
+            if(sourceNode) { 
+                sourceNode.onended = null; 
+                try { sourceNode.stop(); } catch(e) {} 
+                sourceNode.disconnect();
+                sourceNode = null;
+            }
+            isPlaying = false; 
+            isPaused = true; 
+            updateUI();
+        };
+
+        const stopTrack = (resetUI = true) => {
+            if(sourceNode) { 
+                sourceNode.onended = null; 
+                try { sourceNode.stop(); } catch(e) {} 
+                sourceNode.disconnect();
+                sourceNode = null;
+            }
+            isPlaying = false; 
+            isPaused = false; 
+            pausedAt = 0;
+            seekCtrl.value = 0;
+            currentTimeEl.innerText = "0:00";
+            if(resetUI) { 
+                currentSong = null; 
+                currentTrackName.innerText = "System Idle";
+                totalTimeEl.innerText = "0:00";
+                updateUI(); 
+            }
+        };
+
+        const handleToggle = () => {
+            if (isPlaying) pauseTrack();
+            else if (isPaused && currentSong) playTrack(currentSong, true);
+        };
+
+        const updateUI = () => {
+            document.getElementById('playbackStatus').innerText = isPlaying ? "Active Dimension" : (isPaused ? "Paused" : "No Signal");
+            if (currentSong) currentTrackName.innerText = currentSong.name;
+            centerRing.classList.toggle('ring-animation', isPlaying);
+            loadLibrary();
+        };
+
+        const drawLoop = () => {
+            if (!isPlaying && !isPaused) return;
+
+            const now = audioCtx.currentTime;
+            const currentPos = isPlaying ? (now - startTime) : pausedAt;
+            
+            // Update Seek Bar UI
+            seekCtrl.value = currentPos;
+            currentTimeEl.innerText = formatTime(currentPos);
+
+            const x = Math.sin(now * orbitSpeed) * 10;
+            const z = Math.cos(now * orbitSpeed) * 10;
+            const y = Math.sin(now * (orbitSpeed * 0.8)) * heightAmplitude;
+            
+            pannerNode.positionX.setTargetAtTime(x, now, 0.05);
+            pannerNode.positionY.setTargetAtTime(y, now, 0.05);
+            pannerNode.positionZ.setTargetAtTime(z, now, 0.05);
+            
+            document.getElementById('posDebug').innerText = `X: ${x.toFixed(1)} Y: ${y.toFixed(1)} Z: ${z.toFixed(1)}`;
+
+            const data = new Uint8Array(analyzerNode.frequencyBinCount);
+            analyzerNode.getByteFrequencyData(data);
+            for(let i=0; i < BAR_COUNT; i++) {
+                const val = data[i] || 0;
+                spectrumBars[i].style.height = `${Math.max(4, (val / 255) * 100)}%`;
+                spectrumBars[i].style.opacity = 0.2 + (val / 255);
+            }
+
+            const W = visualizer.width, H = visualizer.height, cX = W/2, cY = H/2;
+            canvasCtx.clearRect(0,0,W,H);
+            
+            const angle = now * orbitSpeed;
+            const orbitRadius = 220;
+            const xPos = cX + Math.sin(angle) * orbitRadius;
+            const zScale = 0.8 + Math.cos(angle) * 0.2; 
+            const yPos = cY + (Math.cos(angle) * 50) + (Math.sin(now * (orbitSpeed * 0.8)) * heightAmplitude * 8);
+
+            canvasCtx.beginPath();
+            canvasCtx.arc(cX, cY, orbitRadius, 0, Math.PI * 2);
+            canvasCtx.strokeStyle = 'rgba(99, 102, 241, 0.05)';
+            canvasCtx.stroke();
+
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(cX, cY);
+            canvasCtx.lineTo(xPos, yPos);
+            canvasCtx.strokeStyle = `rgba(99, 102, 241, ${0.1 * zScale})`;
+            canvasCtx.stroke();
+
+            canvasCtx.beginPath();
+            canvasCtx.arc(xPos, yPos, (12 + (data[0]/15)) * zScale, 0, Math.PI*2);
+            canvasCtx.fillStyle = `rgba(34, 211, 238, ${0.7 * zScale})`;
+            canvasCtx.shadowBlur = 25; 
+            canvasCtx.shadowColor = '#22d3ee';
+            canvasCtx.fill();
+            canvasCtx.shadowBlur = 0;
+
+            if(isPlaying) requestAnimationFrame(drawLoop);
+        };
+
+        // Event Listeners
+        volCtrl.oninput = (e) => {
+            loudness = parseFloat(e.target.value);
+            if(mainGain) mainGain.gain.setTargetAtTime(loudness, audioCtx.currentTime, 0.05);
+        };
+        speedCtrl.oninput = (e) => orbitSpeed = parseFloat(e.target.value);
+        heightCtrl.oninput = (e) => heightAmplitude = parseFloat(e.target.value);
+        
+        // Seek Bar Interaction
+        seekCtrl.oninput = (e) => {
+            if (!currentSong) return;
+            const wasPlaying = isPlaying;
+            pausedAt = parseFloat(e.target.value);
+            if (wasPlaying) {
+                playTrack(currentSong, true);
+            } else {
+                currentTimeEl.innerText = formatTime(pausedAt);
+            }
+        };
+
+        document.getElementById('stopBtn').onclick = () => stopTrack(true);
+
+        document.getElementById('fileInput').onchange = async (e) => {
+            const file = e.target.files[0]; 
+            if(!file) return;
+            importText.innerText = "IMPORTING...";
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const tx = db.transaction(STORE_NAME, "readwrite");
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.add({
+                    name: file.name,
+                    data: arrayBuffer,
+                    type: file.type,
+                    size: file.size,
+                    added: Date.now()
+                });
+                request.onsuccess = () => {
+                    importText.innerText = "DONE";
+                    setTimeout(() => importText.innerText = "IMPORT TRACK", 2000);
+                    loadLibrary();
+                };
+            } catch (err) {
+                importText.innerText = "FAILED";
+                setTimeout(() => importText.innerText = "IMPORT TRACK", 2000);
+            }
+        };
+        
+        initDB().then(() => loadLibrary());
+    </script>
+</body>
+</html>
